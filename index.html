@@ -57,6 +57,7 @@
                 <button onclick="abrirModal('modal-categoria')" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700 font-medium">➕ Categoría</button>
                 <button onclick="abrirModal('modal-personal')" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700 font-medium">➕ Personal</button>
                 <button onclick="abrirModal('modal-modelo')" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700 font-medium">➕ Modelo</button>
+                <!-- BOTÓN CORREGIDO CON LLAMADA DIRECTA -->
                 <button onclick="prepararModalEquipo()" class="bg-blue-600 hover:bg-blue-500 text-xs px-4 py-2 rounded-lg font-medium text-white shadow-lg">＋ Registrar Equipo</button>
                 <button onclick="verListas()" id="btn-listas" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700 font-medium text-red-400">🗑️ Listas (Papelera)</button>
             </div>
@@ -232,34 +233,38 @@
 
         // Función para cargar los datos en los selectores al abrir el modal de registrar equipo
         async function prepararModalEquipo() {
-            // 1. Cargar modelos
-            const { data: modelos } = await _supabase.from('modelos').select('*');
-            const selectModelo = document.getElementById('eq-modelo');
-            selectModelo.innerHTML = '<option value="">Selecciona un modelo...</option>';
-            if(modelos) {
-                modelos.forEach(m => {
-                    selectModelo.innerHTML += `<option value="${m.nombre}">${m.nombre}</option>`;
-                });
-            }
+            try {
+                // 1. Cargar modelos
+                const { data: modelos } = await _supabase.from('modelos').select('*');
+                const selectModelo = document.getElementById('eq-modelo');
+                selectModelo.innerHTML = '<option value="">Selecciona un modelo...</option>';
+                if(modelos) {
+                    modelos.forEach(m => {
+                        selectModelo.innerHTML += `<option value="${m.nombre}">${m.nombre}</option>`;
+                    });
+                }
 
-            // 2. Cargar categorías
-            const { data: categorias } = await _supabase.from('categorias').select('*');
-            const selectCategoria = document.getElementById('eq-categoria');
-            selectCategoria.innerHTML = '<option value="">Selecciona una categoría...</option>';
-            if(categorias) {
-                categorias.forEach(c => {
-                    selectCategoria.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
-                });
-            }
+                // 2. Cargar categorías
+                const { data: categorias } = await _supabase.from('categorias').select('*');
+                const selectCategoria = document.getElementById('eq-categoria');
+                selectCategoria.innerHTML = '<option value="">Selecciona una categoría...</option>';
+                if(categorias) {
+                    categorias.forEach(c => {
+                        selectCategoria.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
+                    });
+                }
 
-            // 3. Cargar personal
-            const { data: personal } = await _supabase.from('personal').select('*');
-            const selectPersonal = document.getElementById('eq-asignado');
-            selectPersonal.innerHTML = '<option value="Ninguno">Ninguno (Libre en almacén)</option>';
-            if(personal) {
-                personal.forEach(p => {
-                    selectPersonal.innerHTML += `<option value="${p.nombre}">${p.nombre} (${p.cargo || 'Sin cargo'})</option>`;
-                });
+                // 3. Cargar personal
+                const { data: personal } = await _supabase.from('personal').select('*');
+                const selectPersonal = document.getElementById('eq-asignado');
+                selectPersonal.innerHTML = '<option value="Ninguno">Ninguno (Libre en almacén)</option>';
+                if(personal) {
+                    personal.forEach(p => {
+                        selectPersonal.innerHTML += `<option value="${p.nombre}">${p.nombre} (${p.cargo || 'Sin cargo'})</option>`;
+                    });
+                }
+            } catch(e) {
+                console.error("Error cargando catálogos", e);
             }
 
             abrirModal('modal-equipo');
