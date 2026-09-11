@@ -47,11 +47,17 @@
         <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-wrap gap-3 items-center justify-between mb-6">
             <input type="text" id="buscador" placeholder="Buscar por modelo, colaborador..." class="bg-slate-950 border border-slate-800 px-4 py-2 rounded-lg text-sm w-full md:w-72 focus:outline-none focus:border-blue-600">
             
-            <div class="flex flex-wrap gap-2">
+            <div class="flex flex-wrap gap-2 items-center">
+                <!-- Botones masivos para papelera -->
+                <div id="acciones-masivas" class="hidden flex gap-2">
+                    <button onclick="restaurarSeleccionados()" class="bg-emerald-700 hover:bg-emerald-600 text-xs px-3 py-2 rounded-lg font-medium text-white">🔄 Restaurar Selección</button>
+                    <button onclick="eliminarDefinitivoSeleccionados()" class="bg-red-700 hover:bg-red-600 text-xs px-3 py-2 rounded-lg font-medium text-white">🗑️ Eliminar Definitivo</button>
+                </div>
+                
                 <button onclick="abrirModal('modal-categoria')" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700 font-medium">➕ Categoría</button>
                 <button onclick="abrirModal('modal-personal')" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700 font-medium">➕ Personal</button>
                 <button onclick="abrirModal('modal-modelo')" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700 font-medium">➕ Modelo</button>
-                <button onclick="abrirModal('modal-equipo')" class="bg-blue-600 hover:bg-blue-500 text-xs px-4 py-2 rounded-lg font-medium text-white shadow-lg">＋ Registrar Equipo</button>
+                <button onclick="prepararModalEquipo()" class="bg-blue-600 hover:bg-blue-500 text-xs px-4 py-2 rounded-lg font-medium text-white shadow-lg">＋ Registrar Equipo</button>
                 <button onclick="verListas()" id="btn-listas" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700 font-medium text-red-400">🗑️ Listas (Papelera)</button>
             </div>
         </div>
@@ -61,6 +67,9 @@
             <table class="w-full text-left border-collapse text-sm">
                 <thead class="bg-slate-950 text-slate-400 border-b border-slate-800 text-xs uppercase">
                     <tr>
+                        <th class="p-4 w-10 text-center" id="th-checkbox" style="display:none;">
+                            <input type="checkbox" id="seleccionar-todos" onclick="toggleSeleccionarTodos(this)" class="accent-blue-600 w-4 h-4 cursor-pointer">
+                        </th>
                         <th class="p-4">N°</th>
                         <th class="p-4">Modelo / Equipo</th>
                         <th class="p-4">Estado</th>
@@ -76,18 +85,35 @@
         </div>
     </div>
 
-    <!-- MODAL: Registrar Equipo -->
+    <!-- MODAL: Registrar Equipo (Con Selectores Desplegables) -->
     <div id="modal-equipo" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl w-full max-w-md">
             <h3 class="text-lg font-bold mb-4">Registrar Nuevo Equipo</h3>
-            <input type="text" id="eq-modelo" placeholder="Nombre o Modelo del Equipo" class="w-full bg-slate-950 border border-slate-800 p-2 rounded mb-3 text-sm text-white">
-            <input type="text" id="eq-categoria" placeholder="Categoría (Ej: Laptop, Monitor)" class="w-full bg-slate-950 border border-slate-800 p-2 rounded mb-3 text-sm text-white">
+            
+            <label class="text-xs text-slate-400 mb-1 block">Modelo del Equipo</label>
+            <select id="eq-modelo" class="w-full bg-slate-950 border border-slate-800 p-2 rounded mb-3 text-sm text-white">
+                <option value="">Selecciona un modelo...</option>
+            </select>
+
+            <label class="text-xs text-slate-400 mb-1 block">Categoría</label>
+            <select id="eq-categoria" class="w-full bg-slate-950 border border-slate-800 p-2 rounded mb-3 text-sm text-white">
+                <option value="">Selecciona una categoría...</option>
+            </select>
+
+            <label class="text-xs text-slate-400 mb-1 block">Estado</label>
             <select id="eq-estado" class="w-full bg-slate-950 border border-slate-800 p-2 rounded mb-3 text-sm text-white">
                 <option value="Libre en almacén">Libre en almacén</option>
                 <option value="Asignado a personal">Asignado a personal</option>
             </select>
-            <input type="text" id="eq-asignado" placeholder="Asignado a (Nombre de Personal)" class="w-full bg-slate-950 border border-slate-800 p-2 rounded mb-3 text-sm text-white">
-            <input type="text" id="eq-ubicacion" placeholder="Ubicación (Ej: Oficina Principal)" class="w-full bg-slate-950 border border-slate-800 p-2 rounded mb-4 text-sm text-white">
+
+            <label class="text-xs text-slate-400 mb-1 block">Asignado a Personal</label>
+            <select id="eq-asignado" class="w-full bg-slate-950 border border-slate-800 p-2 rounded mb-3 text-sm text-white">
+                <option value="Ninguno">Ninguno (Libre en almacén)</option>
+            </select>
+
+            <label class="text-xs text-slate-400 mb-1 block">Ubicación</label>
+            <input type="text" id="eq-ubicacion" placeholder="Ej: Oficina Principal, Almacén 2" value="Almacén Principal" class="w-full bg-slate-950 border border-slate-800 p-2 rounded mb-4 text-sm text-white">
+            
             <div class="flex justify-end gap-2">
                 <button onclick="cerrarModal('modal-equipo')" class="px-4 py-2 bg-slate-800 text-xs rounded">Cancelar</button>
                 <button onclick="guardarEquipo()" class="px-4 py-2 bg-blue-600 text-xs rounded text-white">Guardar</button>
@@ -134,7 +160,6 @@
 
     <!-- Lógica de Conexión y JavaScript -->
     <script>
-        // Credenciales configuradas directamente de tu proyecto:
         const SUPABASE_URL = 'https://fjbmcwvpswhhacydicz.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_SraJ8VLa9iMMeLtiTC6krw_oOfPbbDG';
         
@@ -163,16 +188,29 @@
                 document.getElementById('total-registrados').innerText = total;
                 document.getElementById('total-libres').innerText = libres;
                 document.getElementById('total-asignados').innerText = asignados;
+                document.getElementById('th-checkbox').style.display = 'none';
+                document.getElementById('acciones-masivas').classList.add('hidden');
+            } else {
+                document.getElementById('th-checkbox').style.display = 'table-cell';
+                document.getElementById('acciones-masivas').classList.remove('hidden');
             }
 
             if(data.length === 0) {
-                cuerpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500">No hay registros disponibles.</td></tr>`;
+                const colSpan = modoPapelera ? 7 : 6;
+                cuerpo.innerHTML = `<tr><td colspan="${colSpan}" class="p-6 text-center text-slate-500">No hay registros disponibles.</td></tr>`;
                 return;
             }
 
             data.forEach((eq, index) => {
+                const checkboxHtml = modoPapelera ? `
+                    <td class="p-4 text-center">
+                        <input type="checkbox" class="checkbox-item accent-blue-600 w-4 h-4 cursor-pointer" value="${eq.id}">
+                    </td>
+                ` : '';
+
                 cuerpo.innerHTML += `
                     <tr class="hover:bg-slate-900/50">
+                        ${checkboxHtml}
                         <td class="p-4 text-slate-400">${index + 1}</td>
                         <td class="p-4 font-medium">${eq.modelo_equipo} <span class="text-xs text-slate-500 block">${eq.categoria}</span></td>
                         <td class="p-4"><span class="px-2 py-1 rounded text-xs ${eq.estado === 'Libre en almacén' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-amber-950 text-amber-400 border border-amber-800'}">${eq.estado}</span></td>
@@ -180,13 +218,79 @@
                         <td class="p-4 text-slate-400">${eq.ubicacion}</td>
                         <td class="p-4 text-right">
                             ${modoPapelera ? 
-                                `<button onclick="restaurarEquipo(${eq.id})" class="text-xs bg-emerald-700 hover:bg-emerald-600 px-2.5 py-1 rounded text-white font-medium">Restaurar</button>` : 
+                                `<div class="flex justify-end gap-2">
+                                    <button onclick="restaurarEquipo(${eq.id})" class="text-xs bg-emerald-700 hover:bg-emerald-600 px-2.5 py-1 rounded text-white font-medium">Restaurar</button>
+                                    <button onclick="eliminarDefinitivo(${eq.id})" class="text-xs bg-red-800 hover:bg-red-700 px-2.5 py-1 rounded text-white font-medium">Borrar</button>
+                                 </div>` : 
                                 `<button onclick="enviarAPapelera(${eq.id})" class="text-xs bg-red-950 hover:bg-red-900 text-red-300 px-2.5 py-1 rounded border border-red-800 font-medium">Eliminar</button>`
                             }
                         </td>
                     </tr>
                 `;
             });
+        }
+
+        // Función para cargar los datos en los selectores al abrir el modal de registrar equipo
+        async function prepararModalEquipo() {
+            // 1. Cargar modelos
+            const { data: modelos } = await _supabase.from('modelos').select('*');
+            const selectModelo = document.getElementById('eq-modelo');
+            selectModelo.innerHTML = '<option value="">Selecciona un modelo...</option>';
+            if(modelos) {
+                modelos.forEach(m => {
+                    selectModelo.innerHTML += `<option value="${m.nombre}">${m.nombre}</option>`;
+                });
+            }
+
+            // 2. Cargar categorías
+            const { data: categorias } = await _supabase.from('categorias').select('*');
+            const selectCategoria = document.getElementById('eq-categoria');
+            selectCategoria.innerHTML = '<option value="">Selecciona una categoría...</option>';
+            if(categorias) {
+                categorias.forEach(c => {
+                    selectCategoria.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
+                });
+            }
+
+            // 3. Cargar personal
+            const { data: personal } = await _supabase.from('personal').select('*');
+            const selectPersonal = document.getElementById('eq-asignado');
+            selectPersonal.innerHTML = '<option value="Ninguno">Ninguno (Libre en almacén)</option>';
+            if(personal) {
+                personal.forEach(p => {
+                    selectPersonal.innerHTML += `<option value="${p.nombre}">${p.nombre} (${p.cargo || 'Sin cargo'})</option>`;
+                });
+            }
+
+            abrirModal('modal-equipo');
+        }
+
+        function toggleSeleccionarTodos(source) {
+            checkboxes = document.querySelectorAll('.checkbox-item');
+            checkboxes.forEach((cb) => {
+                cb.checked = source.checked;
+            });
+        }
+
+        async function restaurarSeleccionados() {
+            const seleccionados = Array.from(document.querySelectorAll('.checkbox-item:checked')).map(cb => parseInt(cb.value));
+            if(seleccionados.length === 0) { alert('Selecciona al menos un elemento.'); return; }
+
+            for (let id of seleccionados) {
+                await _supabase.from('equipos').update({ eliminado: false }).eq('id', id);
+            }
+            cargarInventario();
+        }
+
+        async function eliminarDefinitivoSeleccionados() {
+            const seleccionados = Array.from(document.querySelectorAll('.checkbox-item:checked')).map(cb => parseInt(cb.value));
+            if(seleccionados.length === 0) { alert('Selecciona al menos un elemento.'); return; }
+            if(!confirm('¿Estás seguro de eliminar permanentemente los elementos seleccionados?')) return;
+
+            for (let id of seleccionados) {
+                await _supabase.from('equipos').delete().eq('id', id);
+            }
+            cargarInventario();
         }
 
         async function guardarEquipo() {
@@ -196,7 +300,8 @@
             const asignado_a = document.getElementById('eq-asignado').value;
             const ubicacion = document.getElementById('eq-ubicacion').value;
 
-            if(!modelo_equipo) { alert('Ingresa el modelo del equipo'); return; }
+            if(!modelo_equipo) { alert('Selecciona el modelo del equipo'); return; }
+            if(!categoria) { alert('Selecciona una categoría'); return; }
 
             const { error } = await _supabase.from('equipos').insert([{ modelo_equipo, categoria, estado, asignado_a, ubicacion }]);
             if (error) { alert('Error al guardar el equipo'); return; }
@@ -210,6 +315,7 @@
             if(!nombre) return;
             await _supabase.from('categorias').insert([{ nombre }]);
             cerrarModal('modal-categoria');
+            document.getElementById('cat-nombre').value = '';
             alert('Categoría guardada con éxito');
         }
 
@@ -219,6 +325,8 @@
             if(!nombre) return;
             await _supabase.from('personal').insert([{ nombre, cargo }]);
             cerrarModal('modal-personal');
+            document.getElementById('per-nombre').value = '';
+            document.getElementById('per-cargo').value = '';
             alert('Personal registrado con éxito');
         }
 
@@ -227,6 +335,7 @@
             if(!nombre) return;
             await _supabase.from('modelos').insert([{ nombre }]);
             cerrarModal('modal-modelo');
+            document.getElementById('mod-nombre').value = '';
             alert('Modelo registrado con éxito');
         }
 
@@ -237,6 +346,12 @@
 
         async function restaurarEquipo(id) {
             await _supabase.from('equipos').update({ eliminado: false }).eq('id', id);
+            cargarInventario();
+        }
+
+        async function eliminarDefinitivo(id) {
+            if(!confirm('¿Eliminar permanentemente este registro?')) return;
+            await _supabase.from('equipos').delete().eq('id', id);
             cargarInventario();
         }
 
