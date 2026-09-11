@@ -84,7 +84,7 @@
         </div>
     </div>
 
-    <!-- MODAL: Registrar Equipo (Solo Modelo, Categoría y Ubicación) -->
+    <!-- MODAL: Registrar Equipo -->
     <div id="modal-equipo" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl w-full max-w-md">
             <h3 class="text-lg font-bold mb-4">Registrar Nuevo Equipo</h3>
@@ -109,7 +109,7 @@
         </div>
     </div>
 
-    <!-- MODAL: Asignar Personal a Equipo existente -->
+    <!-- MODAL: Asignar Personal -->
     <div id="modal-asignar" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl w-full max-w-sm">
             <h3 class="text-lg font-bold mb-4">Asignar Equipo a Personal</h3>
@@ -172,7 +172,6 @@
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let modoPapelera = false;
         
-        // Caché local para carga instantánea
         let cacheModelos = [];
         let cacheCategorias = [];
         let cachePersonal = [];
@@ -264,8 +263,9 @@
             });
         }
 
-        // Abre el modal de registrar equipo de manera instantánea con caché
-        function prepararModalEquipo() {
+        async function prepararModalEquipo() {
+            await precargarCatalogos(); // Asegura datos frescos de la BD al abrir
+
             const selectModelo = document.getElementById('eq-modelo');
             selectModelo.innerHTML = '<option value="">Selecciona un modelo...</option>';
             cacheModelos.forEach(m => {
@@ -281,8 +281,8 @@
             abrirModal('modal-equipo');
         }
 
-        // Abre el modal para asignar personal a un equipo ya creado
-        function abrirModalAsignar(idEquipo) {
+        async function abrirModalAsignar(idEquipo) {
+            await precargarCatalogos();
             document.getElementById('asig-equipo-id').value = idEquipo;
             const selectPersonal = document.getElementById('asig-personal');
             selectPersonal.innerHTML = '<option value="">Selecciona personal...</option>';
@@ -367,33 +367,39 @@
         async function guardarCategoria() {
             const nombre = document.getElementById('cat-nombre').value;
             if(!nombre) return;
-            await _supabase.from('categorias').insert([{ nombre }]);
+            const { error } = await _supabase.from('categorias').insert([{ nombre }]);
+            if(error) { alert('Error al guardar categoría'); return; }
+            
             cerrarModal('modal-categoria');
             document.getElementById('cat-nombre').value = '';
+            await precargarCatalogos();
             alert('Categoría guardada con éxito');
-            cargarInventario();
         }
 
         async function guardarPersonal() {
             const nombre = document.getElementById('per-nombre').value;
             const cargo = document.getElementById('per-cargo').value;
             if(!nombre) return;
-            await _supabase.from('personal').insert([{ nombre, cargo }]);
+            const { error } = await _supabase.from('personal').insert([{ nombre, cargo }]);
+            if(error) { alert('Error al guardar personal'); return; }
+
             cerrarModal('modal-personal');
             document.getElementById('per-nombre').value = '';
             document.getElementById('per-cargo').value = '';
+            await precargarCatalogos();
             alert('Personal registrado con éxito');
-            cargarInventario();
         }
 
         async function guardarModelo() {
             const nombre = document.getElementById('mod-nombre').value;
             if(!nombre) return;
-            await _supabase.from('modelos').insert([{ nombre }]);
+            const { error } = await _supabase.from('modelos').insert([{ nombre }]);
+            if(error) { alert('Error al guardar modelo'); return; }
+
             cerrarModal('modal-modelo');
             document.getElementById('mod-nombre').value = '';
+            await precargarCatalogos();
             alert('Modelo registrado con éxito');
-            cargarInventario();
         }
 
         async function enviarAPapelera(id) {
