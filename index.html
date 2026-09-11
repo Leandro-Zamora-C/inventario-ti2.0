@@ -166,30 +166,13 @@
 
     <!-- Lógica de Conexión y JavaScript -->
     <script>
-        const SUPABASE_URL = 'https://fjbmcwvpswhhacydicz.supabase.co';
+        const SUPABASE_URL = 'https://fjbmcwwpswhhacydicnz.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_SraJ8VLa9iMMeLtiTC6krw_oOfPbbDG';
         
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let modoPapelera = false;
-        
-        let cacheModelos = [];
-        let cacheCategorias = [];
-        let cachePersonal = [];
-
-        async function precargarCatalogos() {
-            const [resMod, resCat, resPer] = await Promise.all([
-                _supabase.from('modelos').select('*'),
-                _supabase.from('categorias').select('*'),
-                _supabase.from('personal').select('*')
-            ]);
-            cacheModelos = resMod.data || [];
-            cacheCategorias = resCat.data || [];
-            cachePersonal = resPer.data || [];
-        }
 
         async function cargarInventario() {
-            await precargarCatalogos();
-
             let query = _supabase.from('equipos').select('*');
             if (!modoPapelera) {
                 query = query.eq('eliminado', false);
@@ -198,7 +181,7 @@
             }
 
             const { data, error } = await query;
-            if (error) { console.error(error); return; }
+            if (error) { console.error("Error cargando inventario:", error); return; }
 
             const cuerpo = document.getElementById('tabla-cuerpo');
             cuerpo.innerHTML = '';
@@ -264,31 +247,41 @@
         }
 
         async function prepararModalEquipo() {
-            await precargarCatalogos(); // Asegura datos frescos de la BD al abrir
+            try {
+                const resModelos = await _supabase.from('modelos').select('nombre');
+                const selectModelo = document.getElementById('eq-modelo');
+                selectModelo.innerHTML = '<option value="">Selecciona un modelo...</option>';
+                if (resModelos.data) {
+                    resModelos.data.forEach(m => {
+                        selectModelo.innerHTML += `<option value="${m.nombre}">${m.nombre}</option>`;
+                    });
+                }
 
-            const selectModelo = document.getElementById('eq-modelo');
-            selectModelo.innerHTML = '<option value="">Selecciona un modelo...</option>';
-            cacheModelos.forEach(m => {
-                selectModelo.innerHTML += `<option value="${m.nombre}">${m.nombre}</option>`;
-            });
-
-            const selectCategoria = document.getElementById('eq-categoria');
-            selectCategoria.innerHTML = '<option value="">Selecciona una categoría...</option>';
-            cacheCategorias.forEach(c => {
-                selectCategoria.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
-            });
+                const resCategorias = await _supabase.from('categorias').select('nombre');
+                const selectCategoria = document.getElementById('eq-categoria');
+                selectCategoria.innerHTML = '<option value="">Selecciona una categoría...</option>';
+                if (resCategorias.data) {
+                    resCategorias.data.forEach(c => {
+                        selectCategoria.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
+                    });
+                }
+            } catch (err) {
+                console.error("Error al preparar modal equipo:", err);
+            }
 
             abrirModal('modal-equipo');
         }
 
         async function abrirModalAsignar(idEquipo) {
-            await precargarCatalogos();
             document.getElementById('asig-equipo-id').value = idEquipo;
+            const resPersonal = await _supabase.from('personal').select('nombre, cargo');
             const selectPersonal = document.getElementById('asig-personal');
             selectPersonal.innerHTML = '<option value="">Selecciona personal...</option>';
-            cachePersonal.forEach(p => {
-                selectPersonal.innerHTML += `<option value="${p.nombre}">${p.nombre} (${p.cargo || 'Sin cargo'})</option>`;
-            });
+            if (resPersonal.data) {
+                resPersonal.data.forEach(p => {
+                    selectPersonal.innerHTML += `<option value="${p.nombre}">${p.nombre} (${p.cargo || 'Sin cargo'})</option>`;
+                });
+            }
             abrirModal('modal-asignar');
         }
 
@@ -320,16 +313,13 @@
         }
 
         function toggleSeleccionarTodos(source) {
-            checkboxes = document.querySelectorAll('.checkbox-item');
-            checkboxes.forEach((cb) => {
-                cb.checked = source.checked;
-            });
+            const checkboxes = document.querySelectorAll('.checkbox-item');
+            checkboxes.forEach((cb) => { cb.checked = source.checked; });
         }
 
         async function restaurarSeleccionados() {
             const seleccionados = Array.from(document.querySelectorAll('.checkbox-item:checked')).map(cb => parseInt(cb.value));
             if(seleccionados.length === 0) { alert('Selecciona al menos un elemento.'); return; }
-
             for (let id of seleccionados) {
                 await _supabase.from('equipos').update({ eliminado: false }).eq('id', id);
             }
@@ -339,8 +329,7 @@
         async function eliminarDefinitivoSeleccionados() {
             const seleccionados = Array.from(document.querySelectorAll('.checkbox-item:checked')).map(cb => parseInt(cb.value));
             if(seleccionados.length === 0) { alert('Selecciona al menos un elemento.'); return; }
-            if(!confirm('¿Estás seguro de eliminar permanentemente los elementos seleccionados?')) return;
-
+            if(!confirm('¿Eliminar permanentemente los elementos seleccionados?')) return;
             for (let id of seleccionados) {
                 await _supabase.from('equipos').delete().eq('id', id);
             }
@@ -358,48 +347,48 @@
             if(!categoria) { alert('Selecciona una categoría'); return; }
 
             const { error } = await _supabase.from('equipos').insert([{ modelo_equipo, categoria, estado, asignado_a, ubicacion }]);
-            if (error) { alert('Error al guardar el equipo'); return; }
+            if (error) { alert('Error al guardar el equipo: ' + error.message); return; }
 
             cerrarModal('modal-equipo');
             cargarInventario();
         }
 
         async function guardarCategoria() {
-            const nombre = document.getElementById('cat-nombre').value;
-            if(!nombre) return;
+            const nombre = document.getElementById('cat-nombre').value.trim();
+            if(!nombre) { alert('Ingresa un nombre para la categoría'); return; }
+            
             const { error } = await _supabase.from('categorias').insert([{ nombre }]);
-            if(error) { alert('Error al guardar categoría'); return; }
+            if(error) { alert('Error al guardar categoría: ' + error.message); return; }
             
             cerrarModal('modal-categoria');
             document.getElementById('cat-nombre').value = '';
-            await precargarCatalogos();
-            alert('Categoría guardada con éxito');
+            alert('¡Categoría guardada con éxito!');
         }
 
         async function guardarPersonal() {
-            const nombre = document.getElementById('per-nombre').value;
-            const cargo = document.getElementById('per-cargo').value;
-            if(!nombre) return;
+            const nombre = document.getElementById('per-nombre').value.trim();
+            const cargo = document.getElementById('per-cargo').value.trim();
+            if(!nombre) { alert('Ingresa el nombre del personal'); return; }
+
             const { error } = await _supabase.from('personal').insert([{ nombre, cargo }]);
-            if(error) { alert('Error al guardar personal'); return; }
+            if(error) { alert('Error al guardar personal: ' + error.message); return; }
 
             cerrarModal('modal-personal');
             document.getElementById('per-nombre').value = '';
             document.getElementById('per-cargo').value = '';
-            await precargarCatalogos();
-            alert('Personal registrado con éxito');
+            alert('¡Personal registrado con éxito!');
         }
 
         async function guardarModelo() {
-            const nombre = document.getElementById('mod-nombre').value;
-            if(!nombre) return;
+            const nombre = document.getElementById('mod-nombre').value.trim();
+            if(!nombre) { alert('Ingresa un nombre para el modelo'); return; }
+
             const { error } = await _supabase.from('modelos').insert([{ nombre }]);
-            if(error) { alert('Error al guardar modelo'); return; }
+            if(error) { alert('Error al guardar modelo: ' + error.message); return; }
 
             cerrarModal('modal-modelo');
             document.getElementById('mod-nombre').value = '';
-            await precargarCatalogos();
-            alert('Modelo registrado con éxito');
+            alert('¡Modelo registrado con éxito!');
         }
 
         async function enviarAPapelera(id) {
@@ -434,7 +423,6 @@
         function abrirModal(id) { document.getElementById(id).classList.remove('hidden'); }
         function cerrarModal(id) { document.getElementById(id).classList.add('hidden'); }
 
-        // Inicializar al cargar la página
         cargarInventario();
     </script>
 </body>
