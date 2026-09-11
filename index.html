@@ -48,7 +48,6 @@
             <input type="text" id="buscador" placeholder="Buscar por modelo, colaborador..." class="bg-slate-950 border border-slate-800 px-4 py-2 rounded-lg text-sm w-full md:w-72 focus:outline-none focus:border-blue-600">
             
             <div class="flex flex-wrap gap-2 items-center">
-                <!-- Botones masivos para papelera -->
                 <div id="acciones-masivas" class="hidden flex gap-2">
                     <button onclick="restaurarSeleccionados()" class="bg-emerald-700 hover:bg-emerald-600 text-xs px-3 py-2 rounded-lg font-medium text-white">🔄 Restaurar Selección</button>
                     <button onclick="eliminarDefinitivoSeleccionados()" class="bg-red-700 hover:bg-red-600 text-xs px-3 py-2 rounded-lg font-medium text-white">🗑️ Eliminar Definitivo</button>
@@ -57,7 +56,6 @@
                 <button onclick="abrirModal('modal-categoria')" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700 font-medium">➕ Categoría</button>
                 <button onclick="abrirModal('modal-personal')" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700 font-medium">➕ Personal</button>
                 <button onclick="abrirModal('modal-modelo')" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700 font-medium">➕ Modelo</button>
-                <!-- BOTÓN CORREGIDO CON LLAMADA DIRECTA -->
                 <button onclick="prepararModalEquipo()" class="bg-blue-600 hover:bg-blue-500 text-xs px-4 py-2 rounded-lg font-medium text-white shadow-lg">＋ Registrar Equipo</button>
                 <button onclick="verListas()" id="btn-listas" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700 font-medium text-red-400">🗑️ Listas (Papelera)</button>
             </div>
@@ -86,7 +84,7 @@
         </div>
     </div>
 
-    <!-- MODAL: Registrar Equipo (Con Selectores Desplegables) -->
+    <!-- MODAL: Registrar Equipo (Solo Modelo, Categoría y Ubicación) -->
     <div id="modal-equipo" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl w-full max-w-md">
             <h3 class="text-lg font-bold mb-4">Registrar Nuevo Equipo</h3>
@@ -101,23 +99,30 @@
                 <option value="">Selecciona una categoría...</option>
             </select>
 
-            <label class="text-xs text-slate-400 mb-1 block">Estado</label>
-            <select id="eq-estado" class="w-full bg-slate-950 border border-slate-800 p-2 rounded mb-3 text-sm text-white">
-                <option value="Libre en almacén">Libre en almacén</option>
-                <option value="Asignado a personal">Asignado a personal</option>
-            </select>
-
-            <label class="text-xs text-slate-400 mb-1 block">Asignado a Personal</label>
-            <select id="eq-asignado" class="w-full bg-slate-950 border border-slate-800 p-2 rounded mb-3 text-sm text-white">
-                <option value="Ninguno">Ninguno (Libre en almacén)</option>
-            </select>
-
             <label class="text-xs text-slate-400 mb-1 block">Ubicación</label>
             <input type="text" id="eq-ubicacion" placeholder="Ej: Oficina Principal, Almacén 2" value="Almacén Principal" class="w-full bg-slate-950 border border-slate-800 p-2 rounded mb-4 text-sm text-white">
             
             <div class="flex justify-end gap-2">
                 <button onclick="cerrarModal('modal-equipo')" class="px-4 py-2 bg-slate-800 text-xs rounded">Cancelar</button>
                 <button onclick="guardarEquipo()" class="px-4 py-2 bg-blue-600 text-xs rounded text-white">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Asignar Personal a Equipo existente -->
+    <div id="modal-asignar" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl w-full max-w-sm">
+            <h3 class="text-lg font-bold mb-4">Asignar Equipo a Personal</h3>
+            <input type="hidden" id="asig-equipo-id">
+            
+            <label class="text-xs text-slate-400 mb-1 block">Seleccionar Colaborador</label>
+            <select id="asig-personal" class="w-full bg-slate-950 border border-slate-800 p-2 rounded mb-4 text-sm text-white">
+                <option value="">Selecciona personal...</option>
+            </select>
+
+            <div class="flex justify-end gap-2">
+                <button onclick="cerrarModal('modal-asignar')" class="px-4 py-2 bg-slate-800 text-xs rounded">Cancelar</button>
+                <button onclick="guardarAsignacion()" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-xs rounded text-white font-medium">Confirmar Asignación</button>
             </div>
         </div>
     </div>
@@ -166,8 +171,26 @@
         
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let modoPapelera = false;
+        
+        // Caché local para carga instantánea
+        let cacheModelos = [];
+        let cacheCategorias = [];
+        let cachePersonal = [];
+
+        async function precargarCatalogos() {
+            const [resMod, resCat, resPer] = await Promise.all([
+                _supabase.from('modelos').select('*'),
+                _supabase.from('categorias').select('*'),
+                _supabase.from('personal').select('*')
+            ]);
+            cacheModelos = resMod.data || [];
+            cacheCategorias = resCat.data || [];
+            cachePersonal = resPer.data || [];
+        }
 
         async function cargarInventario() {
+            await precargarCatalogos();
+
             let query = _supabase.from('equipos').select('*');
             if (!modoPapelera) {
                 query = query.eq('eliminado', false);
@@ -209,6 +232,12 @@
                     </td>
                 ` : '';
 
+                const btnAsignar = (!modoPapelera && eq.estado === 'Libre en almacén') ? 
+                    `<button onclick="abrirModalAsignar(${eq.id})" class="text-xs bg-amber-900/60 hover:bg-amber-900 text-amber-200 px-2.5 py-1 rounded border border-amber-700 font-medium mr-1">👤 Asignar</button>` : '';
+
+                const btnDesasignar = (!modoPapelera && eq.estado === 'Asignado a personal') ? 
+                    `<button onclick="quitarAsignacion(${eq.id})" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded border border-slate-700 font-medium mr-1">🔄 Liberar</button>` : '';
+
                 cuerpo.innerHTML += `
                     <tr class="hover:bg-slate-900/50">
                         ${checkboxHtml}
@@ -223,7 +252,11 @@
                                     <button onclick="restaurarEquipo(${eq.id})" class="text-xs bg-emerald-700 hover:bg-emerald-600 px-2.5 py-1 rounded text-white font-medium">Restaurar</button>
                                     <button onclick="eliminarDefinitivo(${eq.id})" class="text-xs bg-red-800 hover:bg-red-700 px-2.5 py-1 rounded text-white font-medium">Borrar</button>
                                  </div>` : 
-                                `<button onclick="enviarAPapelera(${eq.id})" class="text-xs bg-red-950 hover:bg-red-900 text-red-300 px-2.5 py-1 rounded border border-red-800 font-medium">Eliminar</button>`
+                                `<div class="flex justify-end items-center gap-1">
+                                    ${btnAsignar}
+                                    ${btnDesasignar}
+                                    <button onclick="enviarAPapelera(${eq.id})" class="text-xs bg-red-950 hover:bg-red-900 text-red-300 px-2.5 py-1 rounded border border-red-800 font-medium">Eliminar</button>
+                                 </div>`
                             }
                         </td>
                     </tr>
@@ -231,43 +264,59 @@
             });
         }
 
-        // Función para cargar los datos en los selectores al abrir el modal de registrar equipo
-        async function prepararModalEquipo() {
-            try {
-                // 1. Cargar modelos
-                const { data: modelos } = await _supabase.from('modelos').select('*');
-                const selectModelo = document.getElementById('eq-modelo');
-                selectModelo.innerHTML = '<option value="">Selecciona un modelo...</option>';
-                if(modelos) {
-                    modelos.forEach(m => {
-                        selectModelo.innerHTML += `<option value="${m.nombre}">${m.nombre}</option>`;
-                    });
-                }
+        // Abre el modal de registrar equipo de manera instantánea con caché
+        function prepararModalEquipo() {
+            const selectModelo = document.getElementById('eq-modelo');
+            selectModelo.innerHTML = '<option value="">Selecciona un modelo...</option>';
+            cacheModelos.forEach(m => {
+                selectModelo.innerHTML += `<option value="${m.nombre}">${m.nombre}</option>`;
+            });
 
-                // 2. Cargar categorías
-                const { data: categorias } = await _supabase.from('categorias').select('*');
-                const selectCategoria = document.getElementById('eq-categoria');
-                selectCategoria.innerHTML = '<option value="">Selecciona una categoría...</option>';
-                if(categorias) {
-                    categorias.forEach(c => {
-                        selectCategoria.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
-                    });
-                }
-
-                // 3. Cargar personal
-                const { data: personal } = await _supabase.from('personal').select('*');
-                const selectPersonal = document.getElementById('eq-asignado');
-                selectPersonal.innerHTML = '<option value="Ninguno">Ninguno (Libre en almacén)</option>';
-                if(personal) {
-                    personal.forEach(p => {
-                        selectPersonal.innerHTML += `<option value="${p.nombre}">${p.nombre} (${p.cargo || 'Sin cargo'})</option>`;
-                    });
-                }
-            } catch(e) {
-                console.error("Error cargando catálogos", e);
-            }
+            const selectCategoria = document.getElementById('eq-categoria');
+            selectCategoria.innerHTML = '<option value="">Selecciona una categoría...</option>';
+            cacheCategorias.forEach(c => {
+                selectCategoria.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
+            });
 
             abrirModal('modal-equipo');
+        }
+
+        // Abre el modal para asignar personal a un equipo ya creado
+        function abrirModalAsignar(idEquipo) {
+            document.getElementById('asig-equipo-id').value = idEquipo;
+            const selectPersonal = document.getElementById('asig-personal');
+            selectPersonal.innerHTML = '<option value="">Selecciona personal...</option>';
+            cachePersonal.forEach(p => {
+                selectPersonal.innerHTML += `<option value="${p.nombre}">${p.nombre} (${p.cargo || 'Sin cargo'})</option>`;
+            });
+            abrirModal('modal-asignar');
+        }
+
+        async function guardarAsignacion() {
+            const id = document.getElementById('asig-equipo-id').value;
+            const asignado_a = document.getElementById('asig-personal').value;
+
+            if(!asignado_a) { alert('Selecciona un colaborador'); return; }
+
+            const { error } = await _supabase.from('equipos').update({ 
+                asignado_a: asignado_a, 
+                estado: 'Asignado a personal' 
+            }).eq('id', id);
+
+            if (error) { alert('Error al asignar'); return; }
+
+            cerrarModal('modal-asignar');
+            cargarInventario();
+        }
+
+        async function quitarAsignacion(id) {
+            const { error } = await _supabase.from('equipos').update({ 
+                asignado_a: 'Ninguno', 
+                estado: 'Libre en almacén' 
+            }).eq('id', id);
+
+            if (error) { alert('Error al liberar equipo'); return; }
+            cargarInventario();
         }
 
         function toggleSeleccionarTodos(source) {
@@ -301,9 +350,9 @@
         async function guardarEquipo() {
             const modelo_equipo = document.getElementById('eq-modelo').value;
             const categoria = document.getElementById('eq-categoria').value;
-            const estado = document.getElementById('eq-estado').value;
-            const asignado_a = document.getElementById('eq-asignado').value;
             const ubicacion = document.getElementById('eq-ubicacion').value;
+            const estado = 'Libre en almacén';
+            const asignado_a = 'Ninguno';
 
             if(!modelo_equipo) { alert('Selecciona el modelo del equipo'); return; }
             if(!categoria) { alert('Selecciona una categoría'); return; }
@@ -322,6 +371,7 @@
             cerrarModal('modal-categoria');
             document.getElementById('cat-nombre').value = '';
             alert('Categoría guardada con éxito');
+            cargarInventario();
         }
 
         async function guardarPersonal() {
@@ -333,6 +383,7 @@
             document.getElementById('per-nombre').value = '';
             document.getElementById('per-cargo').value = '';
             alert('Personal registrado con éxito');
+            cargarInventario();
         }
 
         async function guardarModelo() {
@@ -342,6 +393,7 @@
             cerrarModal('modal-modelo');
             document.getElementById('mod-nombre').value = '';
             alert('Modelo registrado con éxito');
+            cargarInventario();
         }
 
         async function enviarAPapelera(id) {
